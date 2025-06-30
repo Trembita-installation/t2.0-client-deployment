@@ -294,11 +294,7 @@
   loop: "{{ groups['ss'] }}"
   run_once: false
 
-- name: start uxp-integrity
-  command: uxp-integrity start
-  delegate_to: "{{ item }}"
-  loop: "{{ groups['ss'] }}"
-  ignore_errors: yes
+
 
 
 
