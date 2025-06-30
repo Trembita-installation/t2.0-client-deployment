@@ -1,0 +1,16 @@
+---
+- name: Determine Ubuntu version
+  set_fact:
+    ubuntu_version: "{{ ansible_distribution_release }}"
+
+- name: Run tasks for Ubuntu 18.04
+  include_tasks: ubuntu_18.yml
+  when: ubuntu_version == 'bionic'
+
+- name: Run tasks for Ubuntu 20.04
+  include_tasks: ubuntu_20.yml
+  when: ubuntu_version == 'focal'
+
+- name: Run tasks for Ubuntu 22.04
+  include_tasks: ubuntu_22.yml
+  when: ubuntu_version == 'jammy'

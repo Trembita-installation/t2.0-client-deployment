@@ -1,0 +1,62 @@
+module(load="imfile" PollingInterval="10")
+
+input(type="imfile" File="/var/log/uxp/api.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/identity-provider-rest-api.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/verifier.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/configuration_client.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/messagelog_archiver.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/ocsp_cache.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/proxy.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/clientproxy_access.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/serverproxy_access.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/proxymonitoragent.log" Tag="uxp-log" Facility="local3")
+input(type="imfile" File="/var/log/uxp/serverconf-cli.log" Tag="uxp-log" Facility="local3")
+
+input(type="imfile" File="/var/log/uxp-integrity/event.log" Tag="uxp-ic" Facility="local3")
+input(type="imfile" File="/var/log/uxp-integrity/integrity.log" Tag="uxp-ic" Facility="local3")
+
+# Database listener
+input(type="imfile" File="/var/log/postgresql/*" Tag="uxp-db" Facility="local3")
+input(type="imfile" File="/var/log/uxp/postgresql.log" Tag="uxp-db" Facility="local3")
+
+# Syslog listener
+input(type="imfile" File="/var/log/syslog" Tag="syslog" Facility="local3")
+input(type="imfile" File="/var/log/uxp/rsyslog.log" Tag="syslog" Facility="local3")
+
+# Nginx listener
+input(type="imfile" File="/var/log/nginx/access.log" Tag="nginx" Facility="local3")
+input(type="imfile" File="/var/log/nginx/error.log" Tag="nginx" Facility="local3")
+input(type="imfile" File="/var/log/uxp/nginx.log" Tag="nginx" Facility="local3")
+
+input(type="imfile" File="/var/log/audit/audit.log" Tag="auditd" Facility="local3")
+
+local3.* action(
+   Action.resumeInterval="10"
+   RebindInterval="10000"
+   Queue.Size="100000"
+   Queue.DiscardMark="97500"
+   Queue.HighWaterMark="80000"
+   Queue.Type="LinkedList"
+   Queue.FileName="rsyslogqueue"
+   Queue.CheckpointInterval="100"
+   Queue.MaxDiskSpace="2g"
+   Action.ResumeRetryCount="-1"
+   Queue.SaveOnShutdown="on"
+   Queue.TimeoutEnqueue="10"
+   Queue.DiscardSeverity="0"
+   type="omfwd"
+   target="{{ graylog_server_ip }}"
+   protocol="tcp"
+   port="514"
+   template="RSYSLOG_SyslogProtocol23Format"
+   StreamDriver="gtls"
+   StreamDriverMode="1"
+   StreamDriver.PermitExpiredCerts="off"
+   StreamDriver.CAFile="/etc/uxp/ssl/graylog_remote.crt"
+   StreamDriver.CertFile="/etc/uxp/ssl/rsyslog_remote.crt"
+   StreamDriver.KeyFile="/etc/uxp/ssl/rsyslog_remote.key"
+   StreamDriverAuthMode="x509/name"
+   StreamDriverPermittedPeers="{{ graylog_server_ip }}"
+)
+
+& stop

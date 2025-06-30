@@ -1,0 +1,5 @@
+---
+- hosts: ek
+  become: yes
+  roles:
+    - ek

@@ -1,0 +1,43 @@
+- name: Generate TLS certs for Kibana (from facts, trimmed)
+  command: >
+    /usr/share/elasticsearch/bin/elasticsearch-certutil cert
+    --pem --self-signed
+    --name kibana-server
+    --dns {{ ansible_hostname }}
+    --ip {{ ansible_facts['default_ipv4']['address'] }}
+    --days 3650
+    --out /etc/kibana/kibana-cert-bundle.zip
+  args:
+    creates: /etc/kibana/kibana-cert-bundle.zip
+
+- name: Unzip TLS cert bundle
+  unarchive:
+    src: /etc/kibana/kibana-cert-bundle.zip
+    dest: /etc/kibana/
+    remote_src: yes
+    creates: /etc/kibana/kibana-server/kibana-server.crt
+
+- name: Move TLS cert files to /etc/kibana explicitly
+  command: mv /etc/kibana/kibana-server/{{ item }} /etc/kibana/
+  args:
+    removes: /etc/kibana/kibana-server
+  loop:
+    - kibana-server.crt
+    - kibana-server.key
+
+- name: Set owner to root:kibana on cert files
+  file:
+    path: "/etc/kibana/{{ item }}"
+    owner: root
+    group: kibana
+  loop:
+    - kibana-server.crt
+    - kibana-server.key
+
+- name: Set permissions to 0640 on cert files
+  file:
+    path: "/etc/kibana/{{ item }}"
+    mode: '0640'
+  loop:
+    - kibana-server.crt
+    - kibana-server.key

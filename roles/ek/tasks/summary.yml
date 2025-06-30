@@ -1,0 +1,29 @@
+- name: Wait 20 seconds for up
+  ansible.builtin.wait_for:
+    timeout: 20
+
+- name: Import UXP dashboard into Kibana 
+  ansible.builtin.shell: |
+    curl -k -X POST "https://localhost:5601/api/saved_objects/_import?overwrite=true" \
+    -u elastic:'{{ elastic_password }}' \
+    -H "kbn-xsrf: true" \
+    -F "file=@/usr/share/doc/uxp-monitor-analytics/examples/kibana-8.x/dashboards/uxp-dashboard.ndjson"
+
+- name: Set Kibana URL
+  ansible.builtin.set_fact:
+    kibana_url: "https://{{ hostvars[groups['ek'][0]].ansible_host }}:5601"    
+
+
+- name: Show elastic superuser credentials
+  ansible.builtin.debug:
+    msg:
+      - "##############################################"
+      - "###  Вітаємо з успішним встановленням EK  ###"
+      - "##############################################"
+      - ""
+      - "SAVE IT"
+      - "Connect to Kibana at: {{ kibana_url }}"
+      - "User : elastic"
+      - "Pass : {{ elastic_password }}"
+      - ""
+      - "----------------------------------------------"

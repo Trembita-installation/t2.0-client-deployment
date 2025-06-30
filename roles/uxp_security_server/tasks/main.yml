@@ -1,0 +1,171 @@
+---
+
+- name: Check each conflicting package for presence
+  shell: dpkg -l {{ item }} 2>/dev/null | grep '^ii' | awk '{print $2}'
+  register: check_conflicting_package
+  changed_when: false
+  loop: "{{ check_packages_list }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Fail if any conflicting package is installed
+  fail:
+    msg: >
+      The package '{{ item.item }}' is already installed. Aborting installation!
+  when: item.stdout != ""
+  loop: "{{ check_conflicting_package.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+
+
+
+- name: Check FQDNs from hostname -A
+  command: hostname -A
+  register: fqdn_check
+  changed_when: false
+  failed_when: fqdn_check.stdout_lines | select('match', '.*\\..*') | list | length == 0
+
+
+- name: Ensure debconf-utils is installed
+  apt:
+    name: debconf-utils
+    state: present
+    update_cache: yes
+
+
+- name: Install specific version of libpam-modules (downgrade if needed)
+  apt:
+    name: libpam-modules=1.4.0-11ubuntu2.4
+    state: present
+    update_cache: yes
+    allow_downgrade: yes
+
+- name: Install specific version of libpam-modules-bin (downgrade if needed)
+  apt:
+    name: libpam-modules-bin=1.4.0-11ubuntu2.4
+    state: present
+    allow_downgrade: yes
+
+
+
+- name: Preseed admin username
+  debconf:
+    name: uxp-identity-provider-rest-api
+    question: "uxp-identity-provider/username"
+    value: "{{ ss_admin_username }}"
+    vtype: string
+
+- name: Preseed admin password
+  debconf:
+    name: uxp-identity-provider-rest-api
+    question: "uxp-identity-provider/password"
+    value: "{{ ss_admin_password }}"
+    vtype: password
+
+- name: Preseed S3 configuration disable
+  debconf:
+    name: uxp-addon-trembita-settings
+    question: "uxp-addon-trembita-settings/s3-configuration-switch"
+    value: "false"
+    vtype: boolean
+
+- name: Install uxp-securityserver-trembita with preseeded answers
+  apt:
+    name: uxp-securityserver-trembita
+    state: present
+
+
+
+# Preseed the mailer type for Postfix
+- name: Set Postfix mailer type to 'Local only'
+  debconf:
+    name: postfix
+    question: "postfix/main_mailer_type"
+    value: "Local only"
+    vtype: select
+
+# Preseed the system mail name using hostname
+- name: Set Postfix system mail name
+  debconf:
+    name: postfix
+    question: "postfix/mailname"
+    value: "{{ ansible_hostname }}"
+    vtype: string
+
+# Install the uxp-integrity-securityserver package with preseeded Postfix config
+- name: Install uxp-integrity-securityserver
+  apt:
+    name: uxp-integrity-securityserver
+    state: present
+
+
+# Pause the UXP Integrity service using CLI
+- name: Pause UXP Integrity
+  command: uxp-integrity pause
+
+
+
+# Get IP of the Ansible control node (the SSH client)
+- name: Get SSH client IP from active SSH connection (ss)
+  shell: "ss -tnp | grep 'sshd' | grep ESTAB | awk '{print $5}' | cut -d: -f1 | sort | uniq | head -n1"
+  register: ssh_client_ip_result
+  changed_when: false
+
+- name: Set SSH client IP fact
+  set_fact:
+    ssh_client_ip: "{{ ssh_client_ip_result.stdout }}"
+
+
+
+
+# Ensure allowed_hosts.conf contains allow <control node IP>;
+- name: Ensure controller IP is in allowed_hosts.conf
+  lineinfile:
+    path: /etc/uxp/nginx/allowed_hosts.conf
+    line: "allow {{ ssh_client_ip }};"
+    create: yes
+    insertafter: EOF
+    state: present
+  when: ssh_client_ip != ""
+
+
+- name: Validate Nginx configuration
+  command: nginx -t
+  register: nginx_test
+  changed_when: false
+  failed_when: nginx_test.rc != 0
+
+- name: Restart Nginx if config is valid
+  service:
+    name: nginx
+    state: restarted
+  when: nginx_test.rc == 0
+
+
+
+- name: Update UXP Integrity
+  command: uxp-integrity update
+  become: true
+  changed_when: false
+
+- name: Start UXP Integrity (handle pause case)
+  command: uxp-integrity start
+  become: true
+  register: integrity_start
+  failed_when: >
+    integrity_start.rc != 0 and
+    ('Integrity checker is paused until:' not in integrity_start.stdout)
+  changed_when: false
+
+
+
+
+
+- name: Show UXP gateway installation success message
+  ansible.builtin.debug:
+    msg: |
+      #############################################################
+      ###  Вітаємо з успішним встановленням шлюзу Трембіта 2.0  ###
+      #############################################################
+

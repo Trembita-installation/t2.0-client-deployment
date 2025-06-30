@@ -1,0 +1,390 @@
+---
+- name: Check if the disk device exists
+  stat:
+    path: "{{ minio_disk_device }}"
+  register: minio_disk_check
+
+- name: Fail if disk is not available
+  fail:
+    msg: "❌ Disk {{ minio_disk_device }} not found! Cannot continue MinIO setup."
+  when: not minio_disk_check.stat.exists
+
+- name: Check if disk is already mounted
+  command: "findmnt -n {{ minio_disk_device }}"
+  register: minio_disk_mounted
+  changed_when: false
+  failed_when: false
+
+- name: Check if device is mounted at the correct mount point
+  command: "findmnt -n --output TARGET --source {{ minio_disk_device }}"
+  register: minio_mount_check
+  changed_when: false
+  failed_when: false
+  when: minio_disk_mounted.rc == 0
+
+- name: Fail if device is mounted but not at {{ minio_mount_point }}
+  fail:
+    msg: "❌ {{ minio_disk_device }} is already mounted, but not at {{ minio_mount_point }} (mounted at {{ minio_mount_check.stdout }})"
+  when:
+    - minio_disk_mounted.rc == 0
+    - minio_mount_check is defined
+    - minio_mount_check.stdout != minio_mount_point
+
+- name: Check filesystem type of disk
+  command: "blkid -o value -s TYPE {{ minio_disk_device }}"
+  register: minio_disk_fstype
+  changed_when: false
+  failed_when: false
+
+- name: Format disk with XFS (if not formatted)
+  filesystem:
+    fstype: xfs
+    dev: "{{ minio_disk_device }}"
+  when:
+    - minio_disk_mounted.rc != 0
+    - minio_disk_fstype.stdout != "xfs"
+
+- name: Create mount point
+  file:
+    path: "{{ minio_mount_point }}"
+    state: directory
+    mode: '0755'
+
+- name: Get disk UUID
+  command: "blkid -s UUID -o value {{ minio_disk_device }}"
+  register: minio_disk_uuid
+  changed_when: false
+
+- name: Ensure disk is present in /etc/fstab using UUID
+  lineinfile:
+    path: /etc/fstab
+    line: "UUID={{ minio_disk_uuid.stdout }} {{ minio_mount_point }} xfs defaults 0 0"
+    state: present
+    create: yes
+    insertafter: EOF
+
+- name: Mount disk by UUID if not already mounted
+  command: "mount {{ minio_mount_point }}"
+  when: minio_disk_mounted.rc != 0
+
+
+- name: pause uxp-integrity
+  command: uxp-integrity pause
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+
+# Install minio and certgen packages
+- name: Install minio and certgen packages
+  apt:
+    name:
+      - minio
+      - certgen
+    state: present
+    update_cache: yes
+
+# Ensure the system group minio-user exists
+- name: Ensure group minio-user exists
+  group:
+    name: minio-user
+    system: yes
+    state: present
+
+# Ensure the system user minio-user exists and belongs to the group
+- name: Ensure user minio-user exists
+  user:
+    name: minio-user
+    group: minio-user
+    system: yes
+    create_home: yes
+    state: present
+
+# Set ownership and permissions for the MinIO data directory
+- name: Set ownership for MinIO data directory
+  file:
+    path: "{{ minio_mount_point }}"
+    owner: minio-user
+    group: minio-user
+    mode: '0770'
+    recurse: no
+
+# Create and configure /etc/default/minio with environment variables
+- name: Configure /etc/default/minio file
+  copy:
+    dest: /etc/default/minio
+    content: |
+      MINIO_ROOT_USER={{ minio_root_user }}
+      MINIO_ROOT_PASSWORD={{ minio_root_password }}
+      MINIO_VOLUMES="{{ minio_mount_point }}"
+      MINIO_OPTS="--console-address :9001"
+    owner: root
+    group: minio-user
+    mode: '0660'
+
+
+
+
+# Ensure certificate output directory exists
+- name: Ensure MinIO certgen working directory exists
+  file:
+    path: /etc/minio/certs
+    state: directory
+    owner: root
+    group: root
+    mode: '0755'
+
+# Generate TLS certificates using certgen
+- name: Generate MinIO TLS certificates using certgen
+  shell: >
+    certgen
+    -ecdsa-curve P256
+    -host "{{ ansible_facts['default_ipv4']['address'] }},{{ inventory_hostname }}"
+    -duration 876000h
+    -org-name "{{ minio_cert_org }}"
+  args:
+    chdir: /etc/minio/certs
+    creates: /etc/minio/certs/public.crt
+
+
+# Ensure MinIO user's .minio/certs directory exists
+- name: Create ~/.minio/certs directory for minio-user
+  file:
+    path: /home/minio-user/.minio/certs
+    state: directory
+    owner: minio-user
+    group: minio-user
+    mode: '0770'
+    recurse: yes
+
+# Copy certgen output to ~/.minio/certs
+- name: Copy certgen output to minio-user's ~/.minio/certs
+  copy:
+    src: "/etc/minio/certs/{{ item }}"
+    dest: "/home/minio-user/.minio/certs/{{ item }}"
+    remote_src: yes
+    owner: minio-user
+    group: minio-user
+    mode: '0640'
+  loop:
+    - public.crt
+    - private.key
+
+
+# Deploy systemd unit file for MinIO
+- name: Deploy systemd unit for MinIO
+  template:
+    src: minio.service.j2
+    dest: /lib/systemd/system/minio.service
+    owner: root
+    group: root
+    mode: '0644'
+
+# Always reload systemd after deploying unit
+- name: Reload systemd daemon
+  systemd:
+    daemon_reload: yes
+
+# Enable and start MinIO service
+- name: Enable and start MinIO
+  systemd:
+    name: minio
+    enabled: yes
+    state: started
+
+# Restart MinIO service to apply latest configs and certs
+- name: Restart MinIO
+  systemd:
+    name: minio
+    state: restarted
+
+
+# Download and install mc (MinIO client) https://min.io/docs/minio/linux/reference/minio-mc.html
+- name: Download mc
+  get_url:
+    url: https://dl.min.io/client/mc/release/linux-amd64/mc
+    dest: /usr/local/bin/mc
+    mode: '0755'
+
+# Set mc alias for MinIO over HTTPS with insecure flag
+- name: Set mc alias for MinIO (HTTPS with --insecure)
+  command: >
+    mc alias set local https://localhost:9000 {{ minio_root_user }} {{ minio_root_password }} --insecure
+  changed_when: false
+
+- name: Create MinIO bucket
+  command: mc mb local/{{ minio_bucket_name }} --insecure
+  register: mc_create_bucket
+  failed_when: >
+    mc_create_bucket.rc != 0 and
+    'Bucket already exists' not in mc_create_bucket.stderr and
+    'you already own it' not in mc_create_bucket.stderr
+  changed_when: "'created' in mc_create_bucket.stdout"
+
+
+
+# Set hard quota for the bucket using --size (not --hard)
+- name: Set hard quota for the bucket
+  command: mc quota set --size {{ minio_bucket_quota }} local/{{ minio_bucket_name }} --insecure
+
+
+
+
+
+# Create lifecycle JSON config file for expiration rule
+- name: Create lifecycle JSON config for expiration
+  copy:
+    dest: /tmp/minio_lifecycle.json
+    content: |
+      {
+        "Rules": [
+          {
+            "ID": "auto-expire-after-{{ minio_bucket_lifecycle_days }}-days",
+            "Status": "Enabled",
+            "Expiration": {
+              "Days": {{ minio_bucket_lifecycle_days }}
+            },
+            "Filter": {
+              "Prefix": ""
+            }
+          }
+        ]
+      }
+
+# Apply lifecycle rule to the bucket using mc ilm import via STDIN
+- name: Apply lifecycle configuration to MinIO bucket
+  shell: mc ilm import local/{{ minio_bucket_name }} < /tmp/minio_lifecycle.json --insecure
+  register: mc_ilm
+  changed_when: "'Successfully imported' in mc_ilm.stdout"
+  failed_when: mc_ilm.rc != 0 and 'already exists' not in mc_ilm.stderr
+
+# Create JSON file describing bucket access policy
+- name: Create bucket policy JSON file
+  copy:
+    dest: /tmp/{{ minio_bucket_policy_name }}.json
+    content: |
+      {
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Effect": "Allow",
+            "Action": ["s3:PutObject", "s3:GetObject"],
+            "Resource": ["arn:aws:s3:::{{ minio_bucket_name }}/*"]
+          }
+        ]
+      }
+
+# Apply bucket policy using mc admin
+- name: Apply bucket policy using mc 
+  command: mc admin policy create local {{ minio_bucket_policy_name }} /tmp/{{ minio_bucket_policy_name }}.json --insecure
+  register: mc_policy
+  changed_when: "'Created policy' in mc_policy.stdout"
+  failed_when: mc_policy.rc != 0 and 'already exists' not in mc_policy.stderr
+
+
+
+# Create MinIO user
+- name: Create MinIO user
+  command: >
+    mc admin user add local {{ minio_service_user }} {{ minio_service_password }} --insecure
+  changed_when: true
+
+# Add user to group
+- name: Add user to MinIO group
+  command: >
+    mc admin group add local {{ minio_service_group }} {{ minio_service_user }} --insecure
+  changed_when: true
+
+# Attach bucket policy to group
+- name: Attach policy to group
+  command: >
+    mc admin policy attach local {{ minio_bucket_policy_name }} --group {{ minio_service_group }} --insecure
+  changed_when: true
+
+# Create service account and parse credentials
+- name: Create service account for MinIO user
+  command: >
+    mc admin user svcacct add local {{ minio_service_user }} --insecure --json
+  register: minio_svcacct_result
+  changed_when: true
+
+- name: Set service account credentials
+  set_fact:
+    minio_service_access_key: "{{ (minio_svcacct_result.stdout | from_json).accessKey }}"
+    minio_service_secret_key: "{{ (minio_svcacct_result.stdout | from_json).secretKey }}"
+
+
+
+
+
+
+
+# Ensure destination directory exists on all ss nodes
+- name: Ensure /etc/uxp/ssl exists on ss nodes
+  file:
+    path: /etc/uxp/ssl
+    state: directory
+    owner: uxp
+    group: uxp
+    mode: '0755'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+# Fetch certificate from the first minio node (only once)
+- name: Fetch MinIO TLS certificate from minio host
+  fetch:
+    src: /home/minio-user/.minio/certs/public.crt
+    dest: /tmp/minio.crt
+    flat: yes
+  delegate_to: "{{ groups['minio'] | first }}"
+  run_once: true
+
+# Copy certificate to all ss nodes
+- name: Copy MinIO TLS certificate to ss nodes
+  copy:
+    src: /tmp/minio.crt
+    dest: /etc/uxp/ssl/minio.crt
+    owner: uxp
+    group: uxp
+    mode: '0640'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+
+
+
+- name: Add [message-log-s3] block to local.ini on ss servers
+  blockinfile:
+    path: /etc/uxp/conf.d/local.ini
+    block: |
+      [message-log-s3]
+      address = https://{{ ansible_facts['default_ipv4']['address'] }}:9000
+      bucket-name = {{ minio_bucket_name }}
+      access-key = {{ minio_service_access_key }}
+      secret-key = {{ minio_service_secret_key }}
+      trusted-certificate = /etc/uxp/ssl/minio.crt
+    marker: "# {mark} ANSIBLE MANAGED BLOCK: message-log-s3"
+    create: yes
+    owner: uxp
+    group: uxp
+    mode: '0640'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+
+
+
+#  Run `uxp-integrity update` on all ss servers
+- name: update uxp-integrity
+  command: uxp-integrity update
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+- name: start uxp-integrity
+  command: uxp-integrity start
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  ignore_errors: yes
+

@@ -1,0 +1,29 @@
+- name: Fetch http_ca.crt from Elasticsearch node
+  fetch:
+    src: /etc/elasticsearch/certs/http_ca.crt
+    dest: /tmp/http_ca.crt
+    flat: yes
+  delegate_to: "{{ groups['ek'][0] }}"
+  run_once: true
+
+- name: Ensure /etc/uxp/ssl exists
+  file:
+    path: /etc/uxp/ssl
+    state: directory
+    owner: root
+    group: uxp
+    mode: '0750'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+- name: Copy Elasticsearch CA cert to ss nodes
+  copy:
+    src: /tmp/http_ca.crt
+    dest: /etc/uxp/ssl/http_ca.crt
+    owner: root
+    group: uxp
+    mode: '0640'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false

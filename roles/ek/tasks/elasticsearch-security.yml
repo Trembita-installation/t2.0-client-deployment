@@ -1,0 +1,37 @@
+- name: Create Elasticsearch role uxp_pma_client
+  uri:
+    url: "https://localhost:9200/_security/role/uxp_pma_client"
+    method: PUT
+    user: elastic
+    password: "{{ elastic_password }}"
+    body_format: json
+    body:
+      cluster: [ "monitor" ]
+      indices:
+        - names: [ "uxp-request*" ]
+          privileges:
+            - create_index
+            - manage
+            - read
+            - view_index_metadata
+            - write
+    headers:
+      Content-Type: "application/json"
+    validate_certs: false
+    status_code: 200
+
+- name: Create Elasticsearch user uxp_pma
+  uri:
+    url: "https://localhost:9200/_security/user/uxp_pma"
+    method: POST
+    user: elastic
+    password: "{{ elastic_password }}"
+    body_format: json
+    body:
+      password: "{{ uxp_pma_password }}"
+      roles: [ "uxp_pma_client" ]
+      full_name: "UXP PMA Monitoring Agent"
+    headers:
+      Content-Type: "application/json"
+    validate_certs: false
+    status_code: 200

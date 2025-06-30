@@ -1,0 +1,34 @@
+---
+- name: Backup the original sources.list with readable timestamp
+  copy:
+    src: /etc/apt/sources.list
+    dest: "/etc/apt/sources.list_BACKUP_ansible_{{ ansible_date_time.date }}_{{ ansible_date_time.time | regex_replace(':', '-') }}"
+    remote_src: true
+    force: false
+
+- name: Generate new sources.list from template
+  template:
+    src: sources.list.j2
+    dest: /etc/apt/sources.list
+    mode: '0644'
+  vars:
+    sources_list_repos: "{{ sources_list_repos_ubuntu22 }}"
+
+- name: Download and import all repository keys
+  ansible.builtin.get_url:
+    url: "{{ item }}"
+    dest: "/tmp/{{ item | basename }}"
+    mode: '0644'
+  loop: "{{ repository_keys }}"
+  register: downloaded_keys
+
+- name: Import all downloaded keys
+  ansible.builtin.apt_key:
+    file: "{{ item.dest }}"
+    state: present
+  loop: "{{ downloaded_keys.results }}"
+
+
+- name: Update apt cache
+  apt:
+    update_cache: yes

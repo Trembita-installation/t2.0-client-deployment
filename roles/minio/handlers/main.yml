@@ -1,0 +1,6 @@
+
+---
+# Reload systemd units when the service file changes
+- name: Reload systemd
+  systemd:
+    daemon_reload: yes

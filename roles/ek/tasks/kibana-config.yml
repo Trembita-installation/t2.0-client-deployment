@@ -1,0 +1,34 @@
+- name: Enable HTTPS and external access in kibana.yml
+  blockinfile:
+    path: /etc/kibana/kibana.yml
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - TLS CONFIG"
+    block: |
+      server.ssl.enabled: true
+      server.ssl.certificate: /etc/kibana/kibana-server.crt
+      server.ssl.key: /etc/kibana/kibana-server.key
+      server.host: 0.0.0.0
+    insertafter: EOF
+
+- name: Enable services
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+  loop:
+    - elasticsearch
+    - kibana
+
+- name: Restart services
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - kibana
+
+
+- name: update integrity
+  command: uxp-integrity update
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+

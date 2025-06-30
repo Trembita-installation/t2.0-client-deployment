@@ -1,0 +1,20 @@
+---
+# handlers file for graylog
+- name: Restart OpenSearch
+  ansible.builtin.service:
+    name: opensearch
+    state: restarted
+
+
+- name: Restart Graylog
+  ansible.builtin.service:
+    name: graylog-server
+    state: restarted
+
+
+
+
+
+
+
+

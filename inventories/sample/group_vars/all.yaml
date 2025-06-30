@@ -1,0 +1,90 @@
+
+
+######## SS ################
+
+ss_admin_username: "uxpadmin"
+ss_admin_password: "YourSuperSecurePassword123!"
+
+#################################
+
+######## MINIO ################
+#
+######## MINIO CONFIG ########
+minio_disk_device: "/dev/sdb"
+minio_mount_point: "/mnt/minio_data"
+minio_root_user: "minio"
+minio_root_password: "YourSuperSecurePassword123!"
+minio_cert_org: "testic"
+#
+######## BUCKET CONFIG ########
+minio_bucket_name: "uxp-messagelog"
+minio_bucket_quota: "50gib"
+minio_bucket_lifecycle_days: 365
+minio_bucket_policy_name: "uxp-messagelog-policy"
+#
+######## SERVICE ACCOUNT CONFIG ########
+minio_service_group: "uxp-security-servers"
+minio_service_user: "uxp-security-server"
+minio_service_password: "YourSuperSecurePassword123!"
+#
+#################################
+
+########### ELK #########
+uxp_pma_password: "YourSuperSecurePassword123!"
+###########################
+
+#### ZABBIX #####
+zabbix_db_user: "zabbix"
+zabbix_db_password: "YourSuperSecurePassword123!"
+zabbix_db_name: "zabbix"
+zabbix_listen_port: 8080
+zabbix_api_user: "uxp-pma"
+zabbix_api_password: "YourSuperSecurePassword123!"
+###############
+
+##### GRAYLOG #####
+graylog_admin_password: "YourSuperSecurePassword123!"
+###################
+
+
+
+
+#### CHECK_CLEAN_SYSTEM #####
+check_packages_list:
+  - uxp-monitor-analytics
+  - elasticsearch
+  - kibana
+  - uxp-integrity
+  - uxp-proxy
+  - uxp-verifier
+  - postgresql
+  - minio
+  - zabbix-server-pgsql
+  - zabbix-frontend-php
+  - zabbix-nginx-conf
+  - mongodb-org
+###############
+
+
+
+
+
+###### REPA #######
+sources_list_repos_ubuntu22:
+  - "deb https://project-repo.trembita.gov.ua:8081/repository/t2-stack-1.22.7/ jammy main"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy main restricted"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy-updates main restricted"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy universe"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy-updates universe"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy multiverse"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy-updates multiverse"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy-backports main restricted universe multiverse"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy-security main restricted"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy-security universe"
+  # - "deb http://ua.archive.ubuntu.com/ubuntu jammy-security multiverse"
+
+
+
+repository_keys:
+  - https://project-repo.trembita.gov.ua:8081/public-keys/public.key.txt
+###################

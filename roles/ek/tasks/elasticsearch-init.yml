@@ -1,0 +1,17 @@
+- name: Grab generated elastic password from log
+  shell: "grep 'generated password for the elastic' /var/log/apt/term.log | tail -n1 | awk -F ': ' '{print $2}'"
+  register: elastic_password
+  changed_when: false
+
+- name: Set fact for elastic_password
+  set_fact:
+    elastic_password: "{{ elastic_password.stdout }}"
+
+- name: Wait until Elasticsearch is alive via curl
+  shell: |
+    curl -k -o /dev/null -s -w "%{http_code}" https://localhost:9200
+  register: es_status_code
+  until: es_status_code.stdout in ['200', '401']
+  retries: 30
+  delay: 5
+  changed_when: false

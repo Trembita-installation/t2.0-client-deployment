@@ -1,0 +1,5 @@
+---
+- hosts: ss
+  become: yes
+  roles:
+    - uxp_security_server

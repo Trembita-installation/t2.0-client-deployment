@@ -1,0 +1,311 @@
+---
+# roles/zabbix_server/tasks/main.yml
+
+- name: Check each conflicting package for presence
+  shell: dpkg -l {{ item }} 2>/dev/null | grep '^ii' | awk '{print $2}'
+  register: check_conflicting_package
+  changed_when: false
+  loop: "{{ check_packages_list }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Fail if any conflicting package is installed
+  fail:
+    msg: >
+      The package '{{ item.item }}' is already installed. Aborting installation!
+  when: item.stdout != ""
+  loop: "{{ check_conflicting_package.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+
+- name: pause uxp-integrity
+  command: uxp-integrity pause
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+
+- name: Generate en_US.UTF-8 locale
+  command: locale-gen en_US.UTF-8
+
+- name: Update system locale
+  command: update-locale
+
+- name: Install Zabbix server and dependencies
+  apt:
+    name:
+      - postgresql
+      - zabbix-server-pgsql
+      - zabbix-frontend-php
+      - php8.1-pgsql
+      - zabbix-nginx-conf
+      - apache2-bin
+      - zabbix-sql-scripts
+      - zabbix-agent
+    state: present
+    update_cache: yes
+
+- name: Create PostgreSQL user for Zabbix
+  become_user: postgres
+  shell: createuser --pwprompt {{ zabbix_db_user }}
+  args:
+    stdin: "{{ zabbix_db_password }}\n{{ zabbix_db_password }}"
+
+- name: Create Zabbix database
+  become_user: postgres
+  command: createdb -O {{ zabbix_db_user }} {{ zabbix_db_name }}
+
+- name: Import initial schema
+  shell: zcat /usr/share/zabbix-sql-scripts/postgresql/server.sql.gz | psql {{ zabbix_db_name }}
+  become_user: "{{ zabbix_db_user }}"
+  environment:
+    PGPASSWORD: "{{ zabbix_db_password }}"
+
+
+- name: Configure DBPassword in zabbix_server.conf
+  lineinfile:
+    path: /etc/zabbix/zabbix_server.conf
+    regexp: '^#?DBPassword='
+    line: "DBPassword={{ zabbix_db_password }}"
+
+- name: Un-comment and set 'listen' in nginx.conf
+  replace:
+    path: /etc/zabbix/nginx.conf
+    regexp: '^\s*#\s*listen\s+\d+;'
+    replace: "        listen {{ zabbix_listen_port }};"
+
+
+- name: Un-comment and set 'server_name' in nginx.conf
+  replace:
+    path: /etc/zabbix/nginx.conf
+    regexp: '^\s*#\s*server_name\s+.*;'
+    replace: '        server_name {{ inventory_hostname }};'
+
+- name: Remove default nginx site
+  file:
+    path: /etc/nginx/sites-enabled/default
+    state: absent
+
+- name: Enable services
+  systemd:
+    name: "{{ item }}"
+    enabled: yes
+  loop:
+    - zabbix-server
+    - zabbix-agent
+    - nginx
+    - php8.1-fpm
+
+- name: Restart services
+  systemd:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - zabbix-server
+    - zabbix-agent
+    - nginx
+    - php8.1-fpm
+
+- name: Deploy zabbix.conf.php for GUI-less setup
+  template:
+    src: zabbix.conf.php.j2
+    dest: /etc/zabbix/web/zabbix.conf.php
+    owner: www-data
+    group: www-data
+    mode: 0640
+
+- name: Get Zabbix auth token
+  uri:
+    url: "http://localhost:{{ zabbix_listen_port }}/api_jsonrpc.php"
+    method: POST
+    body_format: json
+    headers:
+      Content-Type: application/json
+    body:
+      jsonrpc: "2.0"
+      method: "user.login"
+      params:
+        user: "Admin"
+        password: "zabbix"
+      id: 1
+    return_content: yes
+  register: login_response
+
+- set_fact:
+    zabbix_admin_token: "{{ login_response.json.result }}"
+
+
+
+
+
+
+
+
+# Create host group
+- name: Create host group uxp-security-servers
+  uri:
+    url: "http://{{ inventory_hostname }}:{{ zabbix_listen_port }}/api_jsonrpc.php"
+    method: POST
+    headers:
+      Content-Type: application/json
+    body_format: json
+    return_content: yes
+    body: >
+      {
+        "jsonrpc": "2.0",
+        "method": "hostgroup.create",
+        "params": {
+          "name": "uxp-security-servers"
+        },
+        "auth": "{{ zabbix_admin_token }}",
+        "id": 2
+      }
+  register: zabbix_hostgroup_result
+  failed_when: false
+
+- name: Parse hostgroup creation result
+  set_fact:
+    uxp_hostgroup_id: >-
+      {{ (zabbix_hostgroup_result.content | from_json).result.groupids[0] if (zabbix_hostgroup_result.content is defined and (zabbix_hostgroup_result.content | from_json).result is defined) else '10001' }}
+
+# Create user group
+- name: Create user group UXP PMAs
+  uri:
+    url: "http://{{ inventory_hostname }}:{{ zabbix_listen_port }}/api_jsonrpc.php"
+    method: POST
+    headers:
+      Content-Type: application/json
+    body_format: json
+    return_content: yes
+    body: >
+      {
+        "jsonrpc": "2.0",
+        "method": "usergroup.create",
+        "params": {
+          "name": "UXP PMAs",
+          "gui_access": 1,
+          "users_status": 0,
+          "rights": [
+            {
+              "permission": 2,
+              "id": "{{ uxp_hostgroup_id }}"
+            }
+          ]
+        },
+        "auth": "{{ zabbix_admin_token }}",
+        "id": 3
+      }
+  register: zabbix_usergroup_result
+  failed_when: false
+
+- name: Parse usergroup creation result
+  set_fact:
+    uxp_usergroup_id: >-
+      {{ (zabbix_usergroup_result.content | from_json).result.usrgrpids[0] if (zabbix_usergroup_result.content is defined and (zabbix_usergroup_result.content | from_json).result is defined) else '8' }}
+
+# Get role ID of "Super admin role"
+- name: Get Super admin role ID
+  uri:
+    url: "http://{{ inventory_hostname }}:{{ zabbix_listen_port }}/api_jsonrpc.php"
+    method: POST
+    headers:
+      Content-Type: application/json
+    body_format: json
+    return_content: yes
+    body: >
+      {
+        "jsonrpc": "2.0",
+        "method": "role.get",
+        "params": {
+          "output": "extend",
+          "filter": { "name": ["Super admin role"] }
+        },
+        "auth": "{{ zabbix_admin_token }}",
+        "id": 4
+      }
+  register: zabbix_role_result
+
+- name: Parse role ID result
+  set_fact:
+    uxp_role_id: "{{ (zabbix_role_result.content | from_json).result[0].roleid | default('3') }}"
+
+# Create user
+- name: Create user via Zabbix API
+  uri:
+    url: "http://{{ inventory_hostname }}:{{ zabbix_listen_port }}/api_jsonrpc.php"
+    method: POST
+    headers:
+      Content-Type: application/json
+    body_format: json
+    return_content: yes
+    body: >
+      {
+        "jsonrpc": "2.0",
+        "method": "user.create",
+        "params": {
+          "alias": "{{ zabbix_api_user }}",
+          "passwd": "{{ zabbix_api_password }}",
+          "name": "UXP PMA",
+          "usrgrps": [
+            { "usrgrpid": "{{ uxp_usergroup_id }}" }
+          ],
+          "roleid": "{{ uxp_role_id }}"
+        },
+        "auth": "{{ zabbix_admin_token }}",
+        "id": 5
+      }
+  register: zabbix_user_create_result
+
+- name: Show user creation result
+  debug:
+    msg: "User created: {{ zabbix_user_create_result.content | from_json }}"
+
+
+
+
+
+- name: Set zabbix_ip from zabbix group
+  set_fact:
+    zabbix_ip: "{{ hostvars[groups['zabbix'][0]]['ansible_host'] }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Configure /etc/uxp/monitor-agent.ini on all ss nodes for Zabbix
+  blockinfile:
+    path: /etc/uxp/monitor-agent.ini
+    marker: "; {mark} ANSIBLE MANAGED BLOCK - zabbix config"
+    block: |
+      [zabbix-1]
+      enable_configurator = true
+      conf_api_path = /api_jsonrpc.php
+      conf_api_port = 8080
+      username = {{ zabbix_api_user }}
+      password = {{ zabbix_api_password }}
+      host_group = uxp-security-servers
+      address = {{ zabbix_ip }}
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+- name: update uxp-integrity
+  command: uxp-integrity update
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+- name: start uxp-integrity
+  command: uxp-integrity start
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  ignore_errors: yes
+
+
+
+- name: Restart reload-monitor-agent
+  command: reload-monitor-agent
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+

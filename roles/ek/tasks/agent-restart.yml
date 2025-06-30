@@ -1,0 +1,12 @@
+- name: Restart reload-monitor-agent
+  command: reload-monitor-agent
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+
+- name: update integrity 
+  command: uxp-integrity update
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false
+

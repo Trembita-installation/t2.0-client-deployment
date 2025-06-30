@@ -1,0 +1,26 @@
+- name: Update apt cache
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Check each conflicting package for presence
+  shell: dpkg -l {{ item }} 2>/dev/null | grep '^ii' | awk '{print $2}'
+  register: check_conflicting_package
+  changed_when: false
+  loop: "{{ check_packages_list }}"
+  loop_control:
+    label: "{{ item }}"
+
+- name: Fail if any conflicting package is installed
+  fail:
+    msg: >
+      The package '{{ item.item }}' is already installed. Aborting installation!
+  when: item.stdout != ""
+  loop: "{{ check_conflicting_package.results }}"
+  loop_control:
+    label: "{{ item.item }}"
+
+- name: Install uxp-monitor-analytics package
+  apt:
+    name: uxp-monitor-analytics
+    state: present

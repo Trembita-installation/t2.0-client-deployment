@@ -1,0 +1,10 @@
+---
+- name: run all roles
+  hosts: all
+  become: yes
+
+  roles:
+    - ss_install.yaml
+    - minio_install.yaml
+    - ek_install.yaml
+    - zabbix_install.yaml

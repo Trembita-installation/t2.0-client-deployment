@@ -1,0 +1,63 @@
+all:
+  children:
+    infra:
+      hosts:
+        YOUR_SS_SERVER_HOSTNAME:
+          ansible_host: YOUR_SS_SERVER_IP
+        YOUR_MINIO_SERVER_HOSTNAME:
+          ansible_host: YOUR_MINIO_SERVER_IP
+        YOUR_EK_SERVER_HOSTNAME:
+          ansible_host: YOUR_EK_SERVER_IP
+        YOUR_ZABBIX_SERVER_HOSTNAME:
+          ansible_host: YOUR_ZABBIX_SERVER_IP
+        YOUR_GRAYLOG_SERVER_HOSTNAME:
+          ansible_host: YOUR_GRAYLOG_SERVER_IP
+    ss:
+      hosts:
+        YOUR_SS_SERVER_HOSTNAME:
+    minio:
+      hosts:
+        YOUR_MINIO_SERVER_HOSTNAME:
+    ek:
+      hosts:
+        YOUR_EK_SERVER_HOSTNAME:
+    zabbix:
+      hosts:
+        YOUR_ZABBIX_SERVER_HOSTNAME:
+    graylog:
+      hosts:
+        YOUR_GRAYLOG_SERVER_HOSTNAME:
+
+
+
+########################## Visual example of an Ansible inventory file ###############################
+# all:
+#   children:
+#     infra:
+#       hosts:
+#         t2gate-01stack.trembita.gov.ua:
+#           ansible_host: 192.168.250.11
+#         t2minio-01stack.trembita.gov.ua:
+#           ansible_host: 192.168.250.12
+#         t2elk-01stack.trembita.gov.ua:
+#           ansible_host: 192.168.250.13
+#         t2zabbix-01stack.trembita.gov.ua:
+#           ansible_host: 192.168.250.14
+#         t2log-01stack.trembita.gov.ua:
+#           ansible_host: 192.168.250.15
+#     ss:
+#       hosts:
+#         t2gate-01stack.trembita.gov.ua:
+#     ek:
+#       hosts:
+#         t2elk-01stack.trembita.gov.ua:
+#     zabbix:
+#       hosts:
+#         t2zabbix-01stack.trembita.gov.ua:
+#     minio:
+#       hosts:
+#         t2minio-01stack.trembita.gov.ua:
+#     graylog:
+#       hosts:
+#         t2log-01stack.trembita.gov.ua:
+##############################################################################################################

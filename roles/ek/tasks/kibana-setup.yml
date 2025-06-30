@@ -1,0 +1,8 @@
+- name: Generate enrollment token for Kibana
+  command: /usr/share/elasticsearch/bin/elasticsearch-create-enrollment-token -s kibana
+  register: enrollment_token
+
+- name: Enroll Kibana using CLI
+  command: >
+    /usr/share/kibana/bin/kibana-setup
+    --enrollment-token {{ enrollment_token.stdout }}

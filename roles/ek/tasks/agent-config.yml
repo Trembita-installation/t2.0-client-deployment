@@ -1,0 +1,22 @@
+- name: Set elk_ip from ek group
+  set_fact:
+    elk_ip: "{{ hostvars[groups['ek'][0]]['ansible_host'] }}"
+  delegate_to: localhost
+  run_once: true
+
+- name: Configure /etc/uxp/monitor-agent.ini on all ss nodes
+  blockinfile:
+    path: /etc/uxp/monitor-agent.ini
+    marker: "; {mark} ANSIBLE MANAGED BLOCK - elasticsearch config"
+    block: |
+      [elasticsearch]
+      address = {{ elk_ip }}
+      port = 9200
+      scheme = https
+      ca-cert-file = /etc/uxp/ssl/http_ca.crt
+      username = uxp_pma
+      password = {{ uxp_pma_password }}
+      index = uxp-request
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+  run_once: false

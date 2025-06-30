@@ -1,0 +1,29 @@
+- name: Include install tasks
+  import_tasks: install.yml
+
+- name: Include elasticsearch init tasks
+  import_tasks: elasticsearch-init.yml
+
+- name: Include kibana setup tasks
+  import_tasks: kibana-setup.yml
+
+- name: Include kibana TLS cert tasks
+  import_tasks: kibana-certs.yml
+
+- name: Include kibana config tasks
+  import_tasks: kibana-config.yml
+
+- name: Include elasticsearch security setup
+  import_tasks: elasticsearch-security.yml
+
+- name: Include CA certificate copy tasks
+  import_tasks: ca-cert-copy.yml
+
+- name: Include agent config tasks
+  import_tasks: agent-config.yml
+
+- name: Include agent restart tasks
+  import_tasks: agent-restart.yml
+
+- name: Include summary tasks
+  import_tasks: summary.yml
