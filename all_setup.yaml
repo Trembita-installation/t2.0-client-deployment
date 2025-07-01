@@ -8,3 +8,4 @@
     - minio_install.yaml
     - ek_install.yaml
     - zabbix_install.yaml
+    - graylog_install.yaml
