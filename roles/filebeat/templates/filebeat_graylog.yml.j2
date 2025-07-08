@@ -1,0 +1,62 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /var/log/syslog
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "graylog"
+      log_type: "syslog"
+      log_file: "syslog"
+    fields_under_root: true
+    tags: ["syslog"]
+    processors:
+      - drop_event:
+          when:
+            or:
+              - contains:
+                  message: "sshd"
+              - contains:
+                  message: "CRON"
+              - contains:
+                  message: "NetworkManager"
+              - contains:
+                  message: "dhclient"
+              - contains:
+                  message: "dnsmasq"
+              - contains:
+                  message: "audit"
+              - regexp:
+                  message: "systemd.*(Started|Stopped|Stopping|Session)"
+              - regexp:
+                  message: "kernel: (traps|watchdog|perf|irq)"
+              - and:
+                  - contains:
+                      message: "filebeat"
+                  - not:
+                      or:
+                        - contains:
+                            message: "ERROR"
+                        - contains:
+                            message: "error"
+
+  - type: log
+    paths:
+      - /var/log/graylog-server/server.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "graylog"
+      log_type: "graylog"
+      log_file: "server.log"
+    fields_under_root: true
+    tags: ["graylog"]
+
+
+output.elasticsearch:
+  hosts: ["https://logt2.trembita.gov.ua:9200"]
+  api_key: "{{ filebeat_id }}:{{ filebeat_api_key }}"
+  index: "logs-{{ project_id }}-%{+yyyy.MM.dd}"
+  ssl:
+    certificate_authorities: ["/etc/filebeat/ca.crt"]
+
+setup.ilm.enabled: false
+setup.template.enabled: false

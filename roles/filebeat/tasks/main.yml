@@ -1,0 +1,74 @@
+---
+# tasks file for monhub
+- name: Install Filebeat package
+  ansible.builtin.apt:
+    name: filebeat
+    state: present
+    update_cache: yes
+
+
+- name: Deploy CA certificate for Filebeat
+  ansible.builtin.template:
+    src: ca.crt.j2
+    dest: /etc/filebeat/ca.crt
+    owner: root
+    group: root
+    mode: '0644'
+
+
+- name: Deploy Filebeat config only for ss group
+  ansible.builtin.template:
+    src: filebeat_ss.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0600'
+  when: "'ss' in group_names"
+
+
+- name: Deploy Filebeat config only for minio group
+  ansible.builtin.template:
+    src: filebeat_minio.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0600'
+  when: "'minio' in group_names"
+
+
+- name: Deploy Filebeat config only for ek group
+  ansible.builtin.template:
+    src: filebeat_ek.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0600'
+  when: "'ek' in group_names"
+
+- name: Deploy Filebeat config only for zabbix group
+  ansible.builtin.template:
+    src: filebeat_zabbix.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0600'
+  when: "'zabbix' in group_names"
+
+- name: Deploy Filebeat config only for graylog group
+  ansible.builtin.template:
+    src: filebeat_graylog.yml.j2
+    dest: /etc/filebeat/filebeat.yml
+    owner: root
+    group: root
+    mode: '0600'
+  when: "'graylog' in group_names"
+
+
+
+
+- name: Enable and restart Filebeat service
+  ansible.builtin.systemd:
+    name: filebeat
+    enabled: yes
+    state: restarted
+    daemon_reload: yes

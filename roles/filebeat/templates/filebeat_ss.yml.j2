@@ -1,0 +1,204 @@
+filebeat.inputs:
+  - type: log
+    paths:
+      - /var/log/syslog
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "syslog"
+      log_file: "syslog"
+    fields_under_root: true
+    tags: ["syslog"]
+    processors:
+      - drop_event:
+          when:
+            or:
+              - contains:
+                  message: "sshd"
+              - contains:
+                  message: "CRON"
+              - contains:
+                  message: "NetworkManager"
+              - contains:
+                  message: "dhclient"
+              - contains:
+                  message: "dnsmasq"
+              - contains:
+                  message: "audit"
+              - regexp:
+                  message: "systemd.*(Started|Stopped|Stopping|Session)"
+              - regexp:
+                  message: "kernel: (traps|watchdog|perf|irq)"
+              - and:
+                  - contains:
+                      message: "filebeat"
+                  - not:
+                      or:
+                        - contains:
+                            message: "ERROR"
+                        - contains:
+                            message: "error"
+
+  - type: log
+    paths:
+      - /var/log/uxp/api.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "api.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/verifier.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "verifier.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/identity-provider-rest-api.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "identity-provider-rest-api.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/audit.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "audit.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/clientproxy_access.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "clientproxy_access.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/configuration_client.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "configuration_client.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/messagelog_archiver.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "messagelog_archiver.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/ocsp_cache.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "ocsp_cache.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/proxy.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "proxy.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/proxymonitoragent.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "proxymonitoragent.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/serverproxy_access.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "serverproxy_access.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/uxp/serverconf-cli.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp"
+      log_file: "serverconf-cli.log"
+    fields_under_root: true
+    tags: ["uxp"]
+
+  - type: log
+    paths:
+      - /var/log/postgresql/postgresql-16-main.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "postgresql"
+      log_file: "postgresql-16-main.log"
+    fields_under_root: true
+    tags: ["postgresql"]
+
+  - type: log
+    paths:
+      - /var/log/uxp-integrity/integrity.log
+    fields:
+      project_id: "{{ project_id }}"
+      host_role: "ss"
+      log_type: "uxp-integrity"
+      log_file: "integrity.log"
+    fields_under_root: true
+    tags: ["uxp-integrity"]
+
+output.elasticsearch:
+  hosts: ["https://logt2.trembita.gov.ua:9200"]
+  api_key: "{{ filebeat_id }}:{{ filebeat_api_key }}"
+  index: "logs-{{ project_id }}-%{+yyyy.MM.dd}"
+  ssl:
+    certificate_authorities: ["/etc/filebeat/ca.crt"]
+
+setup.ilm.enabled: false
+setup.template.enabled: false

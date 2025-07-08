@@ -49,6 +49,13 @@ graylog_admin_password: "YourSuperSecurePassword123!"
 
 
 
+######## FILEBEAT ###############
+project_id: "PROVIDED_BY_SUPPORT"
+filebeat_id: "PROVIDED_BY_SUPPORT"
+filebeat_api_key: "PROVIDED_BY_SUPPORT"
+#################################
+
+
 #### CHECK_CLEAN_SYSTEM #####
 check_packages_list:
   - uxp-monitor-analytics
