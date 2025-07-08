@@ -34,16 +34,11 @@
     update_cache: yes
 
 
-- name: Install specific version of libpam-modules (downgrade if needed)
+- name: Install specific versions of libpam-modules and libpam-modules-bin (downgrade if needed)
   apt:
-    name: libpam-modules=1.4.0-11ubuntu2.4
-    state: present
-    update_cache: yes
-    allow_downgrade: yes
-
-- name: Install specific version of libpam-modules-bin (downgrade if needed)
-  apt:
-    name: libpam-modules-bin=1.4.0-11ubuntu2.4
+    name:
+      - libpam-modules=1.4.0-11ubuntu2.4
+      - libpam-modules-bin=1.4.0-11ubuntu2.4
     state: present
     allow_downgrade: yes
 
