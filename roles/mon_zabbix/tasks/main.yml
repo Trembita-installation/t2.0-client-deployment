@@ -1,0 +1,39 @@
+---
+# tasks file for monhub
+
+- name: Ensure apt cache is updated
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Install Zabbix Agent2
+  ansible.builtin.apt:
+    name: zabbix-agent2
+    state: present
+
+- name: Deploy Zabbix Agent2 config
+  ansible.builtin.template:
+    src: zabbix_agent2.conf.j2
+    dest: /etc/zabbix/zabbix_agent2.conf
+    owner: root
+    group: root
+    mode: '0644'
+
+
+- name: Deploy PSK file for Zabbix Agent2
+  ansible.builtin.copy:
+    content: "{{ zabbix_psk | trim }}\n"
+    dest: /etc/zabbix/zabbix_agent2.psk
+    owner: zabbix
+    group: zabbix
+    mode: '0600'
+
+
+- name: Restart Zabbix Agent2 service
+  ansible.builtin.service:
+    name: zabbix-agent2
+    state: restarted
+    enabled: true
+
+
+

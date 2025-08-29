@@ -1,0 +1,12 @@
+---
+# vars file for mon_zabbix
+zabbix_component: >-
+  {{
+    (group_names | intersect(['ss', 'minio', 'ek', 'zabbix', 'graylog']))[0]
+  }}
+
+
+zabbix_client_type: >-
+  {{
+    'heavy' if ansible_processor_vcpus | int > 4 else 'light'
+  }}

@@ -56,6 +56,12 @@ filebeat_api_key: "PROVIDED_BY_SUPPORT"
 #################################
 
 
+######### MON_ZAB ###############
+zabbix_org: "PROVIDED_BY_SUPPORT"
+zabbix_psk: "PROVIDED_BY_SUPPORT"
+
+#################################
+
 #### CHECK_CLEAN_SYSTEM #####
 check_packages_list:
   - uxp-monitor-analytics

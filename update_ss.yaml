@@ -1,0 +1,5 @@
+---
+- hosts: ss
+  become: yes
+  roles:
+    - update_ss

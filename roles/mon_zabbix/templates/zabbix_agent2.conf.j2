@@ -1,0 +1,18 @@
+PidFile=/var/run/zabbix/zabbix_agent2.pid
+LogFile=/var/log/zabbix/zabbix_agent2.log
+LogFileSize=0
+
+ServerActive=194.42.200.134
+HostnameItem=system.hostname
+HostMetadata=type={{ zabbix_client_type }};component={{ zabbix_component }};org={{ zabbix_org }}
+
+# TLS encryption using PSK
+TLSConnect=psk
+TLSAccept=psk
+TLSPSKIdentity=psk-client-identity
+TLSPSKFile=/etc/zabbix/zabbix_agent2.psk
+
+Include=/etc/zabbix/zabbix_agent2.d/*.conf
+PluginSocket=/run/zabbix/agent.plugin.sock
+ControlSocket=/run/zabbix/agent.sock
+Include=/etc/zabbix/zabbix_agent2.d/plugins.d/*.conf

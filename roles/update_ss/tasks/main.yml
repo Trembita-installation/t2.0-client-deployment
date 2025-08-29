@@ -1,0 +1,54 @@
+---
+# tasks file for update_ss
+- name:  Pause UXP Integrity
+  command: uxp-integrity pause
+  become: true
+  changed_when: false
+
+- name: Backup securityserver-rest-api JAR
+  ansible.builtin.command:
+    cmd: mv /usr/share/uxp/jlib/securityserver-rest-api-1.22.7-boot.jar /usr/share/uxp/jlib/securityserver-rest-api-1.22.7-boot.jar.backup
+  args:
+    creates: /usr/share/uxp/jlib/securityserver-rest-api-1.22.7-boot.jar.backup
+
+- name: Download new securityserver-rest-api JAR
+  ansible.builtin.get_url:
+    url: https://project-repo.trembita.gov.ua:8081/files/t2/securityserver-rest-api-1.22.7-boot.jar
+    dest: /usr/share/uxp/jlib/securityserver-rest-api-1.22.7-boot.jar
+    owner: root
+    group: root
+    mode: '0644'
+
+
+- name: Update SHA512 checksum for securityserver-rest-api JAR
+  ansible.builtin.replace:
+    path: /etc/aide/uxp/uxp-securityserver-rest-api-sha512sum-output.txt
+    regexp: '^.*\s\*/usr/share/uxp/jlib/securityserver-rest-api-1\.22\.7-boot\.jar$'
+    replace: '22b77578638dbb645b8843b211a595a74c28f482868875a07db0a6c87aea2ad183d6f01f3aa5e45e912a730391ad8f26191cadec3ebb1dc30c13169905389f68 */usr/share/uxp/jlib/securityserver-rest-api-1.22.7-boot.jar'
+
+- name:  Update UXP Integrity
+  command: uxp-integrity update
+  become: true
+  changed_when: false
+
+
+- name: Remove ic_pause_* files from /usr/share/uxp-integrity
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: absent
+  with_fileglob:
+    - "/usr/share/uxp-integrity/ic_pause_*"
+
+
+
+- name:  check UXP Integrity
+  command: uxp-integrity check
+  become: true
+  changed_when: false
+
+
+- name: Restart uxp-securityserver-rest-api service
+  ansible.builtin.systemd:
+    name: uxp-securityserver-rest-api
+    state: restarted
+    enabled: yes
