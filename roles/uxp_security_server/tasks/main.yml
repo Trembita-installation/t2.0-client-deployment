@@ -34,9 +34,85 @@
     update_cache: yes
 
 
-- name: Install specific versions of libpam-modules and libpam-modules-bin (downgrade if needed)
+
+ ###################################### disable auto updade ##############################
+
+- name: Disable auto updates (Ubuntu 22.04) - disable 10periodic
+  copy:
+    dest: /etc/apt/apt.conf.d/10periodic
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "0";
+      APT::Periodic::Download-Upgradeable-Packages "0";
+      APT::Periodic::AutocleanInterval "0";
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version("22.04", "==")
+
+- name: Disable auto updates (Ubuntu 22.04) - disable 20auto-upgrades
+  copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    owner: root
+    group: root
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "0";
+      APT::Periodic::Unattended-Upgrade "0";
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version("22.04", "==")
+
+- name: Disable apt-daily.service
+  systemd:
+    name: apt-daily.service
+    enabled: no
+    state: stopped
+    masked: yes
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version("22.04", "==")
+
+- name: Disable apt-daily-upgrade.service
+  systemd:
+    name: apt-daily-upgrade.service
+    enabled: no
+    state: stopped
+    masked: yes
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version("22.04", "==")
+
+- name: Disable apt-daily.timer
+  systemd:
+    name: apt-daily.timer
+    enabled: no
+    state: stopped
+    masked: yes
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version("22.04", "==")
+
+- name: Disable apt-daily-upgrade.timer
+  systemd:
+    name: apt-daily-upgrade.timer
+    enabled: no
+    state: stopped
+    masked: yes
+  when:
+    - ansible_distribution == "Ubuntu"
+    - ansible_distribution_version is version("22.04", "==")
+
+
+###################################################################################
+
+
+- name: Install specific versions of libpam-modules and libpam-modules-bin (downgrade if needed) 
   apt:
     name:
+      - aide=0.17.4-1
+      - nginx-light=1.18.0-6ubuntu14.5
       - libpam-modules=1.4.0-11ubuntu2.4
       - libpam-modules-bin=1.4.0-11ubuntu2.4
     state: present
