@@ -106,6 +106,18 @@
 
 
 ###################################################################################
+############# delete after release
+- name:  downgrade gcc runtime 
+  command: >
+    apt-get install -y --allow-downgrades --reinstall
+    gcc-12-base=12.3.0-1ubuntu1~22.04
+    libstdc++6=12.3.0-1ubuntu1~22.04
+    libgomp1=12.3.0-1ubuntu1~22.04
+    libgcc-s1=12.3.0-1ubuntu1~22.04
+    libatomic1=12.3.0-1ubuntu1~22.04
+  environment:
+    DEBIAN_FRONTEND: noninteractive
+    NEEDRESTART_MODE: a
 
 
 - name: Install specific versions of libpam-modules and libpam-modules-bin (downgrade if needed) 
@@ -118,7 +130,7 @@
     state: present
     allow_downgrade: yes
 
-
+###################################################################################
 
 - name: Preseed admin username
   debconf:
