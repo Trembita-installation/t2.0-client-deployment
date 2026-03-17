@@ -16,7 +16,7 @@
       ca-cert-file = /etc/uxp/ssl/http_ca.crt
       username = uxp_pma
       password = {{ uxp_pma_password }}
-      index = uxp-request
+      index = uxp-request-%{yyyy.MM.dd}
   delegate_to: "{{ item }}"
   loop: "{{ groups['ss'] }}"
   run_once: false
