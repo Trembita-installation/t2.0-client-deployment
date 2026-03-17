@@ -373,6 +373,20 @@
   delegate_to: "{{ item }}"
   loop: "{{ groups['ss'] }}"
 
+- name: Set archive-storage-type to s3 in [message-log]
+  ini_file:
+    path: /etc/uxp/conf.d/local.ini
+    section: message-log
+    option: archive-storage-type
+    value: s3
+    no_extra_spaces: true
+    create: yes
+    owner: uxp
+    group: uxp
+    mode: '0640'
+  delegate_to: "{{ item }}"
+  loop: "{{ groups['ss'] }}"
+
 
 
 #  Run `uxp-integrity update` on all ss servers
